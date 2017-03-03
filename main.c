@@ -141,11 +141,39 @@ void	arrow_down_funct(void)
 	tputs(tgetstr("sf", NULL), 1, &put_my_char);
 }
 
+void	add_char_to_line(int *x, char c)
+{
+	int 	i;
+	int		j;
+	char	*tmp;
+
+	i = 0;
+	if (*x == ft_strlen(g_line) && *x < 256)
+	{
+		ft_putchar(c);
+		g_line[ft_strlen(g_line)] = c;
+		*x += 1;
+	}
+	else if (*x > 0 && *x < ft_strlen(g_line))
+	{
+		tputs(tgetstr("im", NULL), 1, &put_my_char);
+		tmp = ft_strdup(&g_line[*x]);
+		ft_putchar(c);
+		g_line[*x] = c;
+		*x += 1;
+		j = *x;
+		while (tmp[i])
+			g_line[j++] = tmp[i++];
+		tputs(tgetstr("ei", NULL), 1, &put_my_char);
+	}
+}
+
 int	main(void)
 {
-	char	buff[8];
-	int		key;
-	int		i;
+	char			buff[8];
+	int				key;
+	int				i;
+	static int		x = 0;
 	static const t_manage	funct[] = {
 		{KEY_CODE_ENTER, &enter_funct},
 		{KEY_CODE_RIGHT, &arrow_right_funct},
@@ -167,11 +195,33 @@ int	main(void)
 		key = get_key(buff);
 		i = 0;
 		if (ft_isprint(buff[0]) && !buff[1])
-			ft_putchar(buff[0]);
+			add_char_to_line(&x, buff[0]);
 		while (funct[i].key_code)
 		{
 			if (key == funct[i].key_code)
+			{
+				//printf("g_line = %zu x = %d\n", ft_strlen(g_line), x);
+				if (key == KEY_CODE_LEFT && x > 0)
+				{
+					if (x > 0)
+						x--;
+					else
+						break ;
+				}
+				else if (key == KEY_CODE_RIGHT)
+				{
+					if (x < ft_strlen(g_line))
+						x++;
+					else
+						break ;
+				}
+				else if (key == KEY_CODE_ENTER)
+				{
+					printf("\nline %s\n", g_line);
+					exit(0);
+				}
 				funct[i].f();
+			}
 			i++;
 		}
 	}
