@@ -41,6 +41,12 @@ void	clean_exit(void)
 	exit(0);
 }
 
+int	put_my_char(int c)
+{
+	write(1, &c, 1);
+	return (1);
+}
+
 int	key_is_arrow_right(const char *buff)
 {
 	static char	enter_key[] = {27, 91, 67, 0, 0, 0, 0, 0};
@@ -117,22 +123,22 @@ void	enter_funct(void)
 
 void	arrow_right_funct(void)
 {
-	printf("->\n");
+	tputs(tgetstr("nd", NULL), 1, &put_my_char);
 }
 
 void	arrow_left_funct(void)
 {
-	printf("<-\n");
+	tputs(tgetstr("le", NULL), 1, &put_my_char);
 }
 
 void	arrow_top_funct(void)
 {
-	printf("arrow top\n");
+	tputs(tgetstr("up", NULL), 1, &put_my_char);
 }
 
 void	arrow_down_funct(void)
 {
-	printf("arrow down\n");
+	tputs(tgetstr("sf", NULL), 1, &put_my_char);
 }
 
 int	main(void)
@@ -160,6 +166,8 @@ int	main(void)
 		read(0, buff, 8);
 		key = get_key(buff);
 		i = 0;
+		if (ft_isprint(buff[0]) && !buff[1])
+			ft_putchar(buff[0]);
 		while (funct[i].key_code)
 		{
 			if (key == funct[i].key_code)
