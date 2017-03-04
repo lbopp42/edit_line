@@ -19,6 +19,7 @@
 #define KEY_CODE_LEFT 6
 #include <stdio.h>
 #include <term.h>
+#include <sys/ioctl.h>
 
 void	init_term(void);
 void	default_term(void);
@@ -85,10 +86,8 @@ int	key_is_arrow_left(const char *buff)
 
 int	key_is_enter(const char *buff)
 {
-	static char	*enter_key = NULL;
+	static char	enter_key[] = {10, 0, 0, 0, 0, 0, 0, 0};
 
-	if (!enter_key)
-		enter_key = "\n";
 	if (!ft_strcmp(buff, enter_key))
 		return (1);
 	return (0);
@@ -143,12 +142,18 @@ void	arrow_down_funct(void)
 
 void	add_char_to_line(int *x, char c)
 {
-	int 	i;
-	int		j;
-	char	*tmp;
+	int 			i;
+	static int		line_div = 1;
+	struct winsize	w;
 
 	i = 0;
-	if (*x == ft_strlen(g_line) && *x < 256)
+	ioctl(0, TIOCGSIZE, &w);
+	if (c == 'a')
+	{
+		printf("x = %d et size = %d\n", *x, w.ws_col);
+		return ;
+	}
+	if (*x - 1 == ft_strlen(g_line) && *x < 256)
 	{
 		ft_putchar(c);
 		g_line[ft_strlen(g_line)] = c;
@@ -156,15 +161,13 @@ void	add_char_to_line(int *x, char c)
 	}
 	else if (*x > 0 && *x < ft_strlen(g_line))
 	{
-		tputs(tgetstr("im", NULL), 1, &put_my_char);
-		tmp = ft_strdup(&g_line[*x]);
 		ft_putchar(c);
+		tputs(tgetstr("sc", NULL), 1, &put_my_char);
+		ft_memmove(&g_line[*x + 1], &g_line[*x], ft_strlen(&g_line[*x]));
 		g_line[*x] = c;
+		ft_putstr(&g_line[*x + 1]);
+		tputs(tgetstr("rc", NULL), 1, &put_my_char);
 		*x += 1;
-		j = *x;
-		while (tmp[i])
-			g_line[j++] = tmp[i++];
-		tputs(tgetstr("ei", NULL), 1, &put_my_char);
 	}
 }
 
@@ -173,7 +176,8 @@ int	main(void)
 	char			buff[8];
 	int				key;
 	int				i;
-	static int		x = 0;
+	static int		x = 1;
+	struct winsize	w;
 	static const t_manage	funct[] = {
 		{KEY_CODE_ENTER, &enter_funct},
 		{KEY_CODE_RIGHT, &arrow_right_funct},
@@ -182,8 +186,10 @@ int	main(void)
 		{KEY_CODE_LEFT, &arrow_left_funct},
 		{0, 0}
 	};
+	static int	div_coef = 1;
 
 	i = 0;
+	ioctl(0, TIOCGSIZE, &w);
 	init_term();
 	if (!(g_line = (char*)ft_memalloc(sizeof(char) * 256)))
 		clean_exit();
@@ -200,11 +206,22 @@ int	main(void)
 		{
 			if (key == funct[i].key_code)
 			{
-				//printf("g_line = %zu x = %d\n", ft_strlen(g_line), x);
-				if (key == KEY_CODE_LEFT && x > 0)
+				if (key == KEY_CODE_RIGHT && x / div_coef == w.ws_col)
+				{
+					tputs(tgetstr("do", NULL), 1, &put_my_char);
+					div_coef++;
+					x++;
+					break ;
+				}
+				else if (key == KEY_CODE_LEFT && x > 0)
 				{
 					if (x > 0)
+					{
+						if ((div_coef > 2 && (x / (div_coef - 1)) == w.ws_col)
+							|| (div_coef == 2 && (x / (div_coef - 1) - 1) == w.ws_col))
+							div_coef--;
 						x--;
+					}
 					else
 						break ;
 				}
@@ -218,6 +235,8 @@ int	main(void)
 				else if (key == KEY_CODE_ENTER)
 				{
 					printf("\nline %s\n", g_line);
+					free(g_line);
+					default_term();
 					exit(0);
 				}
 				funct[i].f();
