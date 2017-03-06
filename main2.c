@@ -33,7 +33,7 @@ typedef struct	s_funct
 typedef struct	s_manage
 {
 	int		key_code;
-	void	(*f)(int*);
+	void	(*f)(void);
 }				t_manage;
 
 void	clean_exit(void)
@@ -115,28 +115,19 @@ int	get_key(char *buff)
 	return (0);
 }
 
-void	enter_funct(int *curs)
+void	enter_funct(void)
 {
-	*curs = *curs;
-	printf("\nline = [%s]\n", g_line);
+	printf("ENTER\n");
 }
 
-void	arrow_right_funct(int *curs)
+void	arrow_right_funct(void)
 {
-	if (*curs < ft_strlen(g_line))
-	{
-		*curs += 1;
-		tputs(tgetstr("nd", NULL), 1, &put_my_char);
-	}
+	tputs(tgetstr("nd", NULL), 1, &put_my_char);
 }
 
-void	arrow_left_funct(int *curs)
+void	arrow_left_funct(void)
 {
-	if (*curs)
-	{
-		*curs -= 1;
-		tputs(tgetstr("le", NULL), 1, &put_my_char);
-	}
+	tputs(tgetstr("le", NULL), 1, &put_my_char);
 }
 
 void	arrow_top_funct(void)
@@ -149,14 +140,12 @@ void	arrow_down_funct(void)
 	tputs(tgetstr("sf", NULL), 1, &put_my_char);
 }
 
-int		get_y_position(void)
+int		get_y_position(struct winsize w)
 {
 	char	buff[8];
 	int		i;
 	int		y;
-	struct winsize w;
 
-	ioctl(0, TIOCGSIZE, &w);
 	ft_bzero(buff, 8);
 	y = 0;
 	write(1, "\033[6n", 4);
@@ -172,90 +161,121 @@ int		get_y_position(void)
 	return (y);
 }
 
-int		get_x_position(void)
+void	add_char_to_line(int *x, char c)
 {
-	char	buff[8];
-	int		i;
-	int		x;
-	struct winsize w;
-
-	ioctl(0, TIOCGSIZE, &w);
-	ft_bzero(buff, 8);
-	x = 0;
-	write(1, "\033[6", 4);
-	read(0, buff, 8);
-	i = 1;
-	while (buff[i - 1] != ';')
-		i++;
-	while (buff[i] >= '0' && buff[i] <= '9')
-	{
-		x = x * 10 + buff[i] - '0';
-		i++;
-	}
-	return (x);
-}
-
-void	add_char_to_line(char c, int *curs)
-{
-	struct winsize w;
-
-	ioctl(0, TIOCGSIZE, &w);
-	ft_putchar(c);
-	tputs(tgetstr("sc", NULL), 1, &put_my_char);
-	ft_memmove(&g_line[*curs + 1], &g_line[*curs], ft_strlen(&g_line[*curs]));
-	g_line[*curs] = c;
-	ft_putstr(&g_line[*curs + 1]);
-	tputs(tgetstr("rc", NULL), 1, &put_my_char);
-	*curs += 1;
-	/*if (get_x_position() == w.ws_col)
-		tputs(tgetstr("do", NULL), 1, &put_my_char);*/
-}
-
-void	try_each_funct(int key, int *curs)
-{
-	static const t_manage	funct[] = {
-		{KEY_CODE_ENTER, &enter_funct},
-		{KEY_CODE_RIGHT, &arrow_right_funct},
-		{KEY_CODE_LEFT, &arrow_left_funct},
-		{0, 0}
-	};
-	int						i;
+	int 			i;
+	static int		line_div = 1;
+	struct winsize	w;
+	char			buff[10];
+	int				y;
 
 	i = 0;
-	while (funct[i].key_code)
+	ioctl(0, TIOCGSIZE, &w);
+	y = get_y_position(w);
+	if (c == 'a')
 	{
-		if (key == funct[i].key_code)
-			funct[i].f(curs);
-		i++;
+		printf("line = %zu et size = %d\n", ft_strlen(g_line), w.ws_row);
 	}
-}
-
-void	edit_line(void)
-{
-	char			buff[8];
-	int				key;
-	int				i;
-	static int		curs = 0;
-
-	while (1)
+	if (*x - 1 == ft_strlen(g_line) && *x < 256)
 	{
-		key = 0;
-		ft_bzero(buff, 8);
-		read(0, buff, 8);
-		if (ft_isprint(buff[0]) && !buff[1])
-			add_char_to_line(buff[0], &curs);
-		else
-			key = get_key(buff);
-		try_each_funct(key, &curs);
+		ft_putchar(c);
+		g_line[ft_strlen(g_line)] = c;
+		*x += 1;
+		if (line_div == 1 && *x / line_div == w.ws_col + 1)
+		{
+			tputs(tgetstr("do", NULL), 1, &put_my_char);
+			line_div++;
+		}
+		else if (line_div > 1 && (*x / line_div) == w.ws_col)
+		{
+			tputs(tgetstr("do", NULL), 1, &put_my_char);
+			line_div++;
+		}
+	}
+	else if (*x > 0 && *x < ft_strlen(g_line))
+	{
+		ft_putchar(c);
+		tputs(tgetstr("sc", NULL), 1, &put_my_char);
+		ft_memmove(&g_line[*x + 1], &g_line[*x], ft_strlen(&g_line[*x]));
+		g_line[*x] = c;
+		ft_putstr(&g_line[*x + 1]);
+		tputs(tgetstr("rc", NULL), 1, &put_my_char);
+		*x += 1;
 	}
 }
 
 int	main(void)
 {
+	char			buff[8];
+	int				key;
+	int				i;
+	static int		x = 1;
+	struct winsize	w;
+	static const t_manage	funct[] = {
+		{KEY_CODE_ENTER, &enter_funct},
+		{KEY_CODE_RIGHT, &arrow_right_funct},
+		{KEY_CODE_TOP, &arrow_top_funct},
+		{KEY_CODE_DOWN, &arrow_down_funct},
+		{KEY_CODE_LEFT, &arrow_left_funct},
+		{0, 0}
+	};
+	static int	div_coef = 1;
+
+	i = 0;
+	ioctl(0, TIOCGSIZE, &w);
 	init_term();
 	if (!(g_line = (char*)ft_memalloc(sizeof(char) * 256)))
 		clean_exit();
-	edit_line();
+	while (1)
+	{
+		ft_bzero(buff, 8);
+		read(0, buff, 8);
+		key = get_key(buff);
+		i = 0;
+		if (ft_isprint(buff[0]) && !buff[1])
+			add_char_to_line(&x, buff[0]);
+		while (funct[i].key_code)
+		{
+			if (key == funct[i].key_code)
+			{
+				if (key == KEY_CODE_RIGHT && x / div_coef == w.ws_col)
+				{
+					tputs(tgetstr("do", NULL), 1, &put_my_char);
+					div_coef++;
+					x++;
+					break ;
+				}
+				else if (key == KEY_CODE_LEFT && x > 0)
+				{
+					if (x > 0)
+					{
+						if ((div_coef > 2 && (x / (div_coef - 1)) == w.ws_col)
+							|| (div_coef == 2 && (x / (div_coef - 1) - 1) == w.ws_col))
+							div_coef--;
+						x--;
+					}
+					else
+						break ;
+				}
+				else if (key == KEY_CODE_RIGHT)
+				{
+					if (x < ft_strlen(g_line))
+						x++;
+					else
+						break ;
+				}
+				else if (key == KEY_CODE_ENTER)
+				{
+					printf("\nline %s\n", g_line);
+					free(g_line);
+					default_term();
+					exit(0);
+				}
+				funct[i].f();
+			}
+			i++;
+		}
+	}
 	default_term();
 	return (0);
 }
