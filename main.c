@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <term.h>
 #include <sys/ioctl.h>
+#include <fcntl.h>
 
 void	init_term(void);
 void	default_term(void);
@@ -154,19 +155,16 @@ int		get_y_position(void)
 	char	buff[8];
 	int		i;
 	int		y;
-	struct winsize w;
 
-	ioctl(0, TIOCGSIZE, &w);
-	ft_bzero(buff, 8);
 	y = 0;
+	ft_bzero(buff, 8);
 	write(1, "\033[6n", 4);
 	read(0, buff, 8);
 	i = 1;
-	while (buff[i] < '0' || buff[i] > '9')
-		i++;
-	while (buff[i] >= '0' && buff[i] <= '9')
+	while (buff[i] != ';')
 	{
-		y = y * 10 + buff[i] - '0';
+		if (buff[i] <= '9' && buff[i] >= '0')
+			y = y * 10 + buff[i] - '0';
 		i++;
 	}
 	return (y);
@@ -176,20 +174,21 @@ int		get_x_position(void)
 {
 	char	buff[8];
 	int		i;
+	int		fd;
 	int		x;
-	struct winsize w;
 
-	ioctl(0, TIOCGSIZE, &w);
-	ft_bzero(buff, 8);
 	x = 0;
-	write(1, "\033[6", 4);
+	ft_bzero(buff, 8);
+	write(1, "\033[6n", 4);
 	read(0, buff, 8);
 	i = 1;
-	while (buff[i - 1] != ';')
+	while (buff[i] != ';')
 		i++;
-	while (buff[i] >= '0' && buff[i] <= '9')
+	i++;
+	while (buff[i] != 'R')
 	{
-		x = x * 10 + buff[i] - '0';
+		if (buff[i] <= '9' && buff[i] >= '0')
+			x = x * 10 + buff[i] - '0';
 		i++;
 	}
 	return (x);
@@ -198,6 +197,8 @@ int		get_x_position(void)
 void	add_char_to_line(char c, int *curs)
 {
 	struct winsize w;
+	int				x;
+	int				y;
 
 	ioctl(0, TIOCGSIZE, &w);
 	ft_putchar(c);
@@ -207,8 +208,14 @@ void	add_char_to_line(char c, int *curs)
 	ft_putstr(&g_line[*curs + 1]);
 	tputs(tgetstr("rc", NULL), 1, &put_my_char);
 	*curs += 1;
-	/*if (get_x_position() == w.ws_col)
-		tputs(tgetstr("do", NULL), 1, &put_my_char);*/
+	if (c == 'a')
+	{
+		printf("x = %d et size = %d et y = %d\n", get_x_position(), w.ws_col, get_y_position());
+	}
+	if (get_x_position() == w.ws_col)
+	{
+		tputs(tgetstr("do", NULL), 1, &put_my_char);
+	}
 }
 
 void	try_each_funct(int key, int *curs)
@@ -234,7 +241,6 @@ void	edit_line(void)
 {
 	char			buff[8];
 	int				key;
-	int				i;
 	static int		curs = 0;
 
 	while (1)
